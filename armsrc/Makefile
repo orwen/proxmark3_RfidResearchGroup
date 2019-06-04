@@ -108,9 +108,11 @@ endif
 FPGA_BITSTREAMS = fpga_lf.bit fpga_hf.bit
 
 #the zlib source files required for decompressing the fpga config at run time
-SRC_ZLIB = inflate.c inffast.c inftrees.c adler32.c zutil.c
+SRC_ZLIB = deflate.c adler32.c trees.c zutil.c inflate.c inffast.c inftrees.c
+
 #additional defines required to compile zlib
 ZLIB_CFLAGS = -DZ_SOLO -DZ_PREFIX -DNO_GZIP -DZLIB_PM3_TUNED
+
 APP_CFLAGS += $(ZLIB_CFLAGS)
 # zlib includes:
 APP_CFLAGS += -I../zlib
@@ -122,10 +124,10 @@ APP_CFLAGS += -I. -fno-stack-protector -fno-pie
 # Compile these in thumb mode (small size)
 THUMBSRC = start.c \
     protocols.c \
+    $(SRC_ZLIB) \
     $(SRC_LCD) \
     $(SRC_ISO15693) \
     $(SRC_LF) \
-    $(SRC_ZLIB) \
     $(SRC_LEGIC) \
     $(SRC_FLASH) \
     $(SRC_SMARTCARD) \
