@@ -10,7 +10,8 @@
 //-----------------------------------------------------------------------------
 
 #include "comms.h"
-#include "crc16.h"
+#include "zlib.h"
+
 #if defined(__linux__) || (__APPLE__)
 #include <sys/stat.h>
 #include <unistd.h>
@@ -52,8 +53,6 @@ static pthread_mutex_t rxBufferMutex = PTHREAD_MUTEX_INITIALIZER;
 // Global start time for WaitForResponseTimeout & dl_it, so we can reset timeout when we get packets
 // as sending lot of these packets can slow down things wuite a lot on slow links (e.g. hw status or lf read at 9600)
 static uint64_t timeout_start_time;
-
-static bool dl_it(uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketResponseNG *response, size_t ms_timeout, bool show_warning, uint32_t rec_cmd);
 
 // Simple alias to track usages linked to the Bootloader, these commands must not be migrated.
 // - commands sent to enter bootloader mode as we might have to talk to old firmwares
@@ -768,13 +767,20 @@ bool GetFromDevice(DeviceMemType_t memtype, uint8_t *dest, uint32_t bytes, uint3
         case SIM_MEM: {
             //SendCommandMIX(CMD_DOWNLOAD_SIM_MEM, start_index, bytes, 0, NULL, 0);
             //return dl_it(dest, bytes, start_index, response, ms_timeout, show_warning, CMD_DOWNLOADED_SIMMEM);
-            return false;
+            struct {
+               uint32_t startidx;
+               uint32_t len;
+            } PACKED payload;
+            payload.startidx = start_index;
+            payload.len = bytes;
+            SendCommandNG(CMD_DOWNLOAD_BIGBUF_COMPRESSED, (uint8_t*)&payload, sizeof(payload) );
+            return dl_it_ng(dest, bytes, start_index, response, ms_timeout, show_warning, CMD_DOWNLOADED_BIGBUF_COMPRESSED);
         }
     }
     return false;
 }
 
-static bool dl_it(uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketResponseNG *response, size_t ms_timeout, bool show_warning, uint32_t rec_cmd) {
+bool dl_it(uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketResponseNG *response, size_t ms_timeout, bool show_warning, uint32_t rec_cmd) {
 
     uint32_t bytes_completed = 0;
     __atomic_store_n(&timeout_start_time,  msclock(), __ATOMIC_SEQ_CST);
@@ -811,6 +817,110 @@ static bool dl_it(uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketRes
                 memcpy(dest + offset, response->data.asBytes, copy_bytes);
                 bytes_completed += copy_bytes;
             } else if (response->cmd == CMD_ACK) {
+                return true;
+            }
+        }
+
+        tmp_clk = __atomic_load_n(&timeout_start_time, __ATOMIC_SEQ_CST);
+        if (msclock() - tmp_clk > ms_timeout) {
+            PrintAndLogEx(FAILED, "Timed out while trying to download data from device");
+            break;
+        }
+
+        if (msclock() - tmp_clk > 3000 && show_warning) {
+            // 3 seconds elapsed (but this doesn't mean the timeout was exceeded)
+            PrintAndLogEx(NORMAL, "Waiting for a response from the Proxmark3...");
+            PrintAndLogEx(NORMAL, "You can cancel this operation by pressing the pm3 button");
+            show_warning = false;
+        }
+    }
+    return false;
+}
+
+//====================================================================================================
+// compressed downloads support functions
+//====================================================================================================
+static voidpf deflate_malloc(voidpf opaque, uInt items, uInt size) {
+    return calloc(items * size, sizeof(uint8_t));
+}
+
+static void deflate_free(voidpf opaque, voidpf address) {
+    free(address);
+}
+
+bool dl_it_ng(uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketResponseNG *response, size_t ms_timeout, bool show_warning, uint32_t rec_cmd) {
+
+    uint32_t bytes_completed = 0;
+    __atomic_store_n(&timeout_start_time,  msclock(), __ATOMIC_SEQ_CST);
+    uint64_t tmp_clk;
+
+    // Add delay depending on the communication channel & speed
+    if (ms_timeout != (size_t) -1)
+        ms_timeout += communication_delay();
+
+    while (true) {
+
+        // device side compresses data for every packet sent.
+        // we download all packets first, then try to decompress the data.
+
+        if (getReply(response)) {
+        
+            // sample_buf is a array pointer, located in data.c
+            // arg0 = offset in transfer. Startindex of this chunk
+            // arg1 = length bytes to transfer
+            // arg2 = bigbuff tracelength (?)
+            if (response->cmd == rec_cmd) {
+            
+               struct d {
+                   uint16_t offset;
+                   uint16_t bigbuf_len;
+                   uint8_t data[PM3_CMD_DATA_SIZE - 4];
+                } PACKED;
+                
+                struct d *data = (struct d *)response->data.asBytes;
+                size_t len = response->length - 4;
+                uint32_t copy_bytes = MIN(bytes - bytes_completed, len);
+
+                // extended bounds check1.  upper limit is PM3_CMD_DATA_SIZE - 4
+                // shouldn't happen
+                copy_bytes = MIN(copy_bytes, PM3_CMD_DATA_SIZE - 4);
+
+                // extended bounds check2.
+                if (data->offset + copy_bytes > bytes) {
+                    PrintAndLogEx(FAILED, "ERROR: Out of bounds when downloading from device,  offset %u | len %u | total len %u > buf_size %u", data->offset, copy_bytes,  data->offset + copy_bytes,  bytes);
+                    break;
+                }
+
+                memcpy(dest + data->offset, data->data, copy_bytes);
+                bytes_completed += copy_bytes;
+            } else if (response->cmd == CMD_ACK) {
+            
+                // downloading is complete.
+                // time to decompress it.
+                // inflate the data.  (bytes == downloaded)
+                int32_t ret;
+                uint8_t out_buf[bytes];
+                z_stream cstream;
+
+                PrintAndLogEx(INFO, "got compressed %d  asked for %d", bytes_completed,  bytes);
+                                
+                // initialize z_stream structure for inflate:
+                cstream.next_in = dest;
+                cstream.avail_in = bytes_completed;
+                cstream.next_out = out_buf;
+                cstream.avail_out = bytes;
+                cstream.zalloc = &deflate_malloc;
+                cstream.zfree = &deflate_free;
+                cstream.opaque = Z_NULL;
+
+                ret = inflateInit2(&cstream, 0);
+
+                while (ret != Z_STREAM_END)
+                   ret = inflate(&cstream, Z_SYNC_FLUSH);
+
+                ret = inflateEnd(&cstream);
+            
+                memcpy(dest, out_buf, bytes);
                 return true;
             }
         }

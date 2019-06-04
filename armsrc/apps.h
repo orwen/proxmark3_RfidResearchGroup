@@ -31,6 +31,7 @@ extern "C" {
 #include "iso14443b.h"
 #include "Standalone/standalone.h"
 #include "flashmem.h"
+#include "zlib.h"       // uncompress
 
 extern const uint8_t OddByteParity[256];
 extern int rsamples;   // = 0;

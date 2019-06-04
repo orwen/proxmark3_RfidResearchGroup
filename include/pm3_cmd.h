@@ -262,8 +262,6 @@ typedef struct {
 #define CMD_DOWNLOADED_RAW_BITS_TI_TYPE                                   0x0204
 #define CMD_ACQUIRE_RAW_ADC_SAMPLES_125K                                  0x0205
 #define CMD_MOD_THEN_ACQUIRE_RAW_ADC_SAMPLES_125K                         0x0206
-#define CMD_DOWNLOAD_BIGBUF                                               0x0207
-#define CMD_DOWNLOADED_BIGBUF                                             0x0208
 #define CMD_UPLOAD_SIM_SAMPLES_125K                                       0x0209
 #define CMD_SIMULATE_TAG_125K                                             0x020A
 #define CMD_HID_DEMOD_FSK                                                 0x020B
@@ -298,6 +296,13 @@ typedef struct {
 #define CMD_SET_LF_T55XX_CONFIG                                           0x0226
 
 #define CMD_T55XX_CHKPWDS                                                 0x0230
+
+// transfer of data
+#define CMD_DOWNLOAD_BIGBUF                                               0x0207
+#define CMD_DOWNLOADED_BIGBUF                                             0x0208
+#define CMD_DOWNLOAD_BIGBUF_COMPRESSED                                    0x0231
+#define CMD_DOWNLOADED_BIGBUF_COMPRESSED                                  0x0232
+
 
 /* CMD_SET_ADC_MUX: ext1 is 0 for lopkd, 1 for loraw, 2 for hipkd, 3 for hiraw */
 
@@ -518,7 +523,7 @@ typedef struct {
 // took settings from libnfc/buses/uart.c
 
 // uart_windows.c & uart_posix.c
-# define UART_FPC_CLIENT_RX_TIMEOUT_MS  200
+# define UART_FPC_CLIENT_RX_TIMEOUT_MS  100
 # define UART_USB_CLIENT_RX_TIMEOUT_MS  20
 # define UART_TCP_CLIENT_RX_TIMEOUT_MS  300
 

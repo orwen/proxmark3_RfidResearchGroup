@@ -22,6 +22,8 @@
 #include "util_posix.h"
 #include "util.h"
 #include "util_darwin.h"
+#include "crc16.h"
+#include "zlib.h"
 
 #if defined(__linux__) && !defined(NO_UNLINK)
 #include <unistd.h> // for unlink()
@@ -74,6 +76,8 @@ bool WaitForResponse(uint32_t cmd, PacketResponseNG *response);
 
 bool GetFromDevice(DeviceMemType_t memtype, uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketResponseNG *response, size_t ms_timeout, bool show_warning);
 
+bool dl_it(uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketResponseNG *response, size_t ms_timeout, bool show_warning, uint32_t rec_cmd);
+bool dl_it_ng(uint8_t *dest, uint32_t bytes, uint32_t start_index, PacketResponseNG *response, size_t ms_timeout, bool show_warning, uint32_t rec_cmd);
 #endif
 
 

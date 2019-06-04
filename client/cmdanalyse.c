@@ -483,9 +483,135 @@ static char *pb(uint32_t b) {
 }
 */
 
+/*
+#include "zlib.h"
+// zlib configuration
+#define COMPRESS_LEVEL          5  // use best possible compression
+#define COMPRESS_WINDOW_BITS    11 // default = max = 15 for a window of 2^15 = 32KBytes
+#define COMPRESS_MEM_LEVEL      8  // determines the amount of memory allocated during compression. Default = 8.
+*/
+/* COMPRESS_STRATEGY can be
+    Z_DEFAULT_STRATEGY (the default),
+    Z_FILTERED (more huffmann, less string matching),
+    Z_HUFFMAN_ONLY (huffman only, no string matching)
+    Z_RLE (distances limited to one)
+    Z_FIXED (prevents the use of dynamic Huffman codes)
+*/
+/*
+#define COMPRESS_STRATEGY         Z_DEFAULT_STRATEGY
+// zlib tuning parameters:
+#define COMPRESS_GOOD_LENGTH      258
+#define COMPRESS_MAX_LAZY         258
+#define COMPRESS_MAX_NICE_LENGTH  258
+#define COMPRESS_MAX_CHAIN        2048  //8192
+*/
 static int CmdAnalyseA(const char *Cmd) {
+//    return usage_analyse_a();
 
-    return usage_analyse_a();
+    if ( tolower(Cmd[0]) == 'h' )
+        return usage_analyse_a();
+
+/*    
+    uint8_t data[MAX_GRAPH_TRACE_LEN];
+    uint32_t size = getFromGraphBuf(data);
+    if (size == 0) {
+        PrintAndLogEx(INFO, "INFO: no data in graphbuf");
+        return PM3_ESOFT;
+    }
+    
+    PrintAndLogEx(NORMAL, "Graphbuffer length | %d\n", size);
+    
+    int32_t ret;
+    z_stream cstream;
+
+    // initialize zlib structures
+    cstream.next_in = data;
+    cstream.avail_in = size;
+    cstream.zalloc = deflate_malloc;
+    cstream.zfree = deflate_free;
+    cstream.opaque = Z_NULL;
+
+    ret = deflateInit2(&cstream,
+                       COMPRESS_LEVEL,
+                       Z_DEFLATED,
+                       COMPRESS_WINDOW_BITS,
+                       COMPRESS_MEM_LEVEL,
+                       COMPRESS_STRATEGY);
+
+   // should check return value ret.
+    if (ret != Z_OK)
+       return PM3_EMALLOC;
+
+    // estimate the size of the compressed output
+    uint32_t outsize_max = deflateBound(&cstream, cstream.avail_in);
+    uint8_t *outbuf = calloc(outsize_max, sizeof(uint8_t));
+    cstream.next_out = outbuf;
+    cstream.avail_out = outsize_max;
+
+    if (ret == Z_OK) {
+        ret = deflateTune(&cstream,
+                          COMPRESS_GOOD_LENGTH,
+                          COMPRESS_MAX_LAZY,
+                          COMPRESS_MAX_NICE_LENGTH,
+                          COMPRESS_MAX_CHAIN);
+    }
+
+    if (ret == Z_OK) {
+        ret = deflate(&cstream, Z_FINISH);
+    }
+    printf("compressed %u input bytes to %lu output bytes\n", size, cstream.total_out);
+
+    if (ret != Z_STREAM_END) {
+        printf("Error in deflate(): %d %s\n", ret, cstream.msg);
+    }
+    
+    uint32_t compress_len = cstream.total_out;
+    
+    deflateEnd(&cstream);
+    
+    // decompress
+    uint8_t decomp[size];
+    
+    // initialize z_stream structure for inflate:
+    cstream.next_in = outbuf;
+    cstream.avail_in = compress_len;
+    cstream.next_out = decomp;
+    cstream.avail_out = MAX_GRAPH_TRACE_LEN;
+    cstream.zalloc = &deflate_malloc;
+    cstream.zfree = &deflate_free;
+    cstream.opaque = Z_NULL;
+
+    ret = inflateInit2(&cstream, 0);
+    if (ret != Z_OK) {
+        printf("Error in inflate init(): %d %s\n", ret, cstream.msg);
+        return PM3_ESOFT;
+    }
+    
+    printf("Inflate init - OK\n");
+
+    while (ret != Z_STREAM_END)
+       ret = inflate(&cstream, Z_SYNC_FLUSH);
+
+    ret = inflateEnd(&cstream);
+   
+    free(outbuf);
+    */
+
+    printf("Start testing compressed download\n");
+  
+    // test of compressed download
+    uint8_t *got = calloc(10000, sizeof(uint8_t));
+    if (!GetFromDevice(SIM_MEM, got, 10000, 0, NULL, 10000, false)) {
+        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        return PM3_ETIMEOUT;
+    }
+        
+    // copy to graphbuff
+    setGraphBuf(got, 10000);
+
+    ShowGraphWindow();
+    
+    return PM3_SUCCESS;
     /*
         PrintAndLogEx(NORMAL, "-- " _BLUE_("its my message") "\n");
         PrintAndLogEx(NORMAL, "-- " _RED_("its my message") "\n");
@@ -612,25 +738,6 @@ static int CmdAnalyseA(const char *Cmd) {
 
         return 0;
         */
-    /*
-    bool term = !isatty(STDIN_FILENO);
-    if (!term) {
-        char star[4];
-        star[0] = '-';
-        star[1] = '\\';
-        star[2] = '|';
-        star[3] = '/';
-
-        for (uint8_t k=0; k<4; k = (k+1) % 4 ) {
-            PrintAndLogEx(NORMAL, "\e[s%c\e[u", star[k]);
-            fflush(stdout);
-            if (ukbhit()) {
-                int gc = getchar(); (void)gc;
-                break;
-            }
-        }
-    }
-    */
 
 //piwi
 // uid(2e086b1a) nt(230736f6) ks(0b0008000804000e) nr(000000000)
