@@ -16,6 +16,8 @@
 #include "util.h"
 #include "dbprint.h"
 #include "ticks.h"
+#include "lfdemod.h"
+#include "commonutil.h"
 
 #define OPTS 2
 
@@ -108,7 +110,17 @@ void RunMod() {
             Dbprintf("[=] simulating %x | %x%08x", selected, high[selected], low[selected]);
 
             // high, low, no led control(A)  no time limit
-            CmdHIDsimTAGEx(0, high[selected], low[selected], 0, false, -1);
+            uint8_t id[12];
+            uint32_t dw[] = {high[selected], low[selected]};
+            dwordsToBytes(dw, id, ARRAYLEN(id));
+
+            id[6] = (high[selected] >> 8) & 0xFF;
+            id[7] = high[selected] & 0xFF;
+            id[8] = (low[selected] >> 24) & 0xFF;
+            id[9] = (low[selected] >> 16) & 0xFF;
+            id[10] = (low[selected] >> 8) & 0xFF;
+            id[11] = low[selected] & 0xFF;
+            CmdHIDsimTAGEx(id, false, false, -1);
 
             DbpString("[=] simulating done");
 

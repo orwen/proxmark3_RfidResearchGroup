@@ -34,6 +34,8 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "lfops.h"
+#include "lfdemod.h"
+#include "commonutil.h"
 
 #define OPTS 3
 
@@ -128,7 +130,10 @@ void RunMod() {
                 WAIT_BUTTON_RELEASED();
 
                 Dbprintf("[=] %x %x %08x", selected, high[selected], low[selected]);
-                CmdHIDsimTAG(0, high[selected], low[selected], 0, 0);
+                uint8_t id[12];
+                uint32_t dw[] = {high[selected], low[selected]};
+                dwordsToBytes(dw, id, ARRAYLEN(id));
+                CmdHIDsimTAG(id, false, false);
                 DbpString("[=] done playing");
 
                 if (BUTTON_HELD(1000) > 0)
@@ -187,8 +192,10 @@ void RunMod() {
 
                     // Print actual code to brute
                     Dbprintf("[=] TAG ID: %x%08x (%d) - FC: %u - Card: %u", high[selected], low[selected], (low[selected] >> 1) & 0xFFFF, fc, cardnum);
-
-                    CmdHIDsimTAGEx(0, high[selected], low[selected], 0, 1, 50000);
+                    uint8_t id[12];
+                    uint32_t dw[] = {high[selected], low[selected]};
+                    dwordsToBytes(dw, id, ARRAYLEN(id));
+                    CmdHIDsimTAGEx(id, false, true, 50000);
                 }
 
                 cardnum = original_cardnum;
@@ -215,8 +222,10 @@ void RunMod() {
 
                     // Print actual code to brute
                     Dbprintf("[=] TAG ID: %x%08x (%d) - FC: %u - Card: %u", high[selected], low[selected], (low[selected] >> 1) & 0xFFFF, fc, cardnum);
-
-                    CmdHIDsimTAGEx(0, high[selected], low[selected], 0, 1, 50000);
+                    uint8_t id[12];
+                    uint32_t dw[] = {high[selected], low[selected]};
+                    dwordsToBytes(dw, id, ARRAYLEN(id));
+                    CmdHIDsimTAGEx(id, false, true, 50000);
                 }
 
                 DbpString("[=] done bruteforcing");

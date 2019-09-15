@@ -60,8 +60,9 @@ bool     DetectST(uint8_t *buffer, size_t *size, int *foundclock, size_t *ststar
 size_t   fskdemod(uint8_t *dest, size_t size, uint8_t rfLen, uint8_t invert, uint8_t fchigh, uint8_t fclow, int *start_idx);
 //void     getHiLo(uint8_t *bits, size_t size, int *high, int *low, uint8_t fuzzHi, uint8_t fuzzLo);
 void     getHiLo(int *high, int *low, uint8_t fuzzHi, uint8_t fuzzLo);
+void    dwordsToBytes(uint32_t *dwords, uint8_t *bytes, uint16_t bytelen);
 uint32_t manchesterEncode2Bytes(uint16_t datain);
-void     manchesterEncodeUint32(uint32_t data_in, uint8_t bitlen_in, uint8_t *bits_out, uint16_t *index);
+uint16_t manchesterEncodeBytes(uint8_t *data_in, uint16_t bitoffset_in, uint16_t bitlen_in, uint8_t *bits_out, uint16_t bitoffset_out, uint16_t max_bitlen_out);
 int      ManchesterEncode(uint8_t *bits, size_t size);
 uint16_t manrawdecode(uint8_t *bits, size_t *size, uint8_t invert, uint8_t *alignPos);
 int      nrzRawDemod(uint8_t *dest, size_t *size, int *clk, int *invert, int *startIdx);

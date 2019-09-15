@@ -262,38 +262,49 @@ static int CmdHIDRead_device(const char *Cmd) {
 */
 static int CmdHIDSim(const char *Cmd) {
     lf_hidsim_t payload;
-    payload.longFMT = 0;
-    uint32_t hi2 = 0, hi = 0, lo = 0;
+    payload.longFMT = false;
+    memset(payload.id, 0, sizeof(payload.id));
     uint32_t n = 0, i = 0;
+    uint16_t avail_nibbles = 0, nibbles = 0;
+    uint8_t id_len = 44;
 
     uint8_t ctmp = tolower(param_getchar(Cmd, 0));
     if (strlen(Cmd) == 0 || ctmp == 'h') return usage_lf_hid_sim();
 
     if (strchr(Cmd, 'l') != 0) {
         i++;
-        while (sscanf(&Cmd[i++], "%1x", &n) == 1) {
-            hi2 = (hi2 << 4) | (hi >> 28);
-            hi = (hi << 4) | (lo >> 28);
-            lo = (lo << 4) | (n & 0xf);
-        }
-
-        PrintAndLogEx(INFO, "Simulating HID tag with long ID %x%08x%08x", hi2, hi, lo);
-        payload.longFMT = 1;
-    } else {
-        while (sscanf(&Cmd[i++], "%1x", &n) == 1) {
-            hi = (hi << 4) | (lo >> 28);
-            lo = (lo << 4) | (n & 0xf);
-        }
-        PrintAndLogEx(SUCCESS, "Simulating HID tag with ID %x%08x", hi, lo);
-        hi2 = 0;
+        if (strchr(Cmd, ' ') != 0)
+            i++;
+        id_len = 84;
+        // Long format identifier 0x9E
+        payload.id[0]  = 0x9E;
+        nibbles+=2;
+        payload.longFMT = true;
+    }
+    // see first how many nibbles we got
+    uint32_t j = i;
+    while (sscanf(&Cmd[j++], "%1x", &n) == 1) {
+        avail_nibbles++;
+    }
+    if (avail_nibbles > id_len / 4) {
+        PrintAndLogEx(ERR, "ID too long, %sID is max %i bits", payload.longFMT ? "long " : "", id_len);
+        return PM3_EINVARG;
+    }
+    while (sscanf(&Cmd[i++], "%1x", &n) == 1) {
+        uint16_t id_off = (id_len / 4) - avail_nibbles + nibbles++;
+        payload.id[id_off / 2] |= n << (id_off & 1 ? 0 : 4);
     }
 
+    if (payload.longFMT) {
+        PrintAndLogEx(INFO, "Simulating HID tag with long ID (%02x)%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%x",
+        payload.id[0],
+        payload.id[1], payload.id[2], payload.id[3], payload.id[4], payload.id[5], payload.id[6],
+        payload.id[7], payload.id[8], payload.id[9], payload.id[10], payload.id[11] >> 4);
+    } else {
+        PrintAndLogEx(INFO, "Simulating HID tag with ID %02x%02x%02x%02x%02x%x",
+        payload.id[0], payload.id[1], payload.id[2], payload.id[3], payload.id[4], payload.id[5] >> 4);
+    }
     PrintAndLogEx(SUCCESS, "Press pm3-button to abort simulation");
-
-    payload.hi2 = hi2;
-    payload.hi = hi;
-    payload.lo = lo;
-
     clearCommandBuffer();
     SendCommandNG(CMD_LF_HID_SIMULATE, (uint8_t *)&payload,  sizeof(payload));
     PacketResponseNG resp;

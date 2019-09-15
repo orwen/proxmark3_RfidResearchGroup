@@ -199,10 +199,8 @@ typedef struct {
 
 // For CMD_LF_HID_SIMULATE (FSK)
 typedef struct {
-    uint32_t hi2;
-    uint32_t hi;
-    uint32_t lo;
-    uint8_t longFMT;
+    uint8_t id[12];
+    bool longFMT;
 } PACKED lf_hidsim_t;
 
 // For CMD_LF_FSK_SIMULATE (FSK)

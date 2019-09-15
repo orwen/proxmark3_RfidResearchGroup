@@ -409,6 +409,13 @@ void askAmp(uint8_t *bits, size_t size) {
     }
 }
 
+void dwordsToBytes(uint32_t *dwords, uint8_t *bytes, uint16_t bytelen) {
+    memset(bytes, 0, bytelen);
+    for (uint16_t i = 0; i < bytelen; i++) {
+        bytes[i] = (dwords[(bytelen-i-1)/4]>>(((bytelen-i-1)%4 )*8)) & 0xFF;
+    }
+}
+
 // iceman, simplify this
 uint32_t manchesterEncode2Bytes(uint16_t datain) {
     uint32_t output = 0;
@@ -419,16 +426,21 @@ uint32_t manchesterEncode2Bytes(uint16_t datain) {
     return output;
 }
 
-void manchesterEncodeUint32(uint32_t data_in, uint8_t bitlen_in, uint8_t *bits_out, uint16_t *index) {
-    for (int i = bitlen_in - 1; i >= 0; i--) {
-        if ((data_in >> i) & 1) {
-            bits_out[(*index)++] = 1;
-            bits_out[(*index)++] = 0;
+uint16_t manchesterEncodeBytes(uint8_t *data_in, uint16_t bitoffset_in, uint16_t bitlen_in, uint8_t *bits_out, uint16_t bitoffset_out, uint16_t max_bitlen_out) {
+    uint16_t bitlen_out = 0;
+    while ((bitlen_in > 0) && (bitlen_out <= max_bitlen_out - 2)) {
+        if ((data_in[bitoffset_in / 8] >> (7 - (bitoffset_in % 8))) & 1) {
+            bits_out[bitoffset_out++] = 1;
+            bits_out[bitoffset_out++] = 0;
         } else {
-            bits_out[(*index)++] = 0;
-            bits_out[(*index)++] = 1;
+            bits_out[bitoffset_out++] = 0;
+            bits_out[bitoffset_out++] = 1;
         }
+        bitoffset_in++;
+        bitlen_in--;
+        bitlen_out += 2;
     }
+    return bitlen_out;
 }
 
 //by marshmellow

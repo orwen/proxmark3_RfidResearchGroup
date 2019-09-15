@@ -17,6 +17,8 @@
 #include "dbprint.h"
 #include "ticks.h"
 #include "lfops.h"
+#include "lfdemod.h"
+#include "commonutil.h"
 
 void ModInfo(void) {
     DbpString("  LF HID ProxII bruteforce - aka Proxbrute (Brad Antoniewicz)");
@@ -102,7 +104,10 @@ void RunMod() {
                 Dbprintf("[=] trying Facility = %08x ID %08x", high, i);
 
                 // high, i, ledcontrol,  timelimit 20000
-                CmdHIDsimTAGEx(0, high, i, 0, false, 20000);
+                uint8_t id[12];
+                uint32_t dw[] = {high, i};
+                dwordsToBytes(dw, id, ARRAYLEN(id));
+                CmdHIDsimTAGEx(id, false, false, 20000);
 
                 SpinDelay(100);
             }
